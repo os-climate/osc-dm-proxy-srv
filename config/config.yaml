@@ -1,0 +1,57 @@
+registrar:
+  host: "bgs-dm-registrar-srv"
+  port: 8000
+
+#####
+#
+# Routing table for proxy
+#
+# Note: route source is a regex (regular expression)
+# and any matching expression will invoke a URL consisting
+# of the target PLUS the source path
+#####
+
+routes:
+
+  #####
+  # REGISTRAR
+  #####
+
+  # Example: /api/registrar/carts
+  # Example: /api/registrar/carts/uuid/{uuid}
+  # Example: /api/registrar/carts/uuid/{uuid}/{product_uuid}/{artifact_uuid}
+  - source: "/api/registrar/.*"
+    target: "http://bgs-dm-registrar-srv:8000"
+
+  #####
+  # SEARCH
+  #####
+  - source: "/api/search/.*"
+    target: "http://bgs-dm-search-srv:8000"
+
+  #####
+  # PRODUCT INSTANCES (requests routed to local data products)
+  #####
+
+  # Example: /api/dataproducts/uuid/{uuid}
+  # Example: /api/dataproducts/uuid/{uuid}/artifacts
+  # Example: /api/dataproducts/uuid/{uuid}/artifacts/{artifact_uuid}
+  - source: "/api/dataproducts/.*"
+    target: "dataproduct_resolver"
+
+  #####
+  # GEOSPATIAL
+  #####
+
+  - source: "/api/geomesh/.*"
+    target: "http://bgs-geo-h3grid-srv:8000"
+
+
+  #####
+  # USER INTERFACE
+  #####
+
+  # UX: Catch-all route for the React app
+  - source: "/.*"
+    target: "http://bgs-dm-marketplace-ux:3000"
+
