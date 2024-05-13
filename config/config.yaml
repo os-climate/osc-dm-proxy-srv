@@ -1,5 +1,5 @@
 registrar:
-  host: "bgs-dm-registrar-srv"
+  host: "osc-dm-registrar-srv"
   port: 8000
 
 #####
@@ -21,13 +21,13 @@ routes:
   # Example: /api/registrar/carts/uuid/{uuid}
   # Example: /api/registrar/carts/uuid/{uuid}/{product_uuid}/{artifact_uuid}
   - source: "/api/registrar/.*"
-    target: "http://bgs-dm-registrar-srv:8000"
+    target: "http://osc-dm-registrar-srv:8000"
 
   #####
   # SEARCH
   #####
   - source: "/api/search/.*"
-    target: "http://bgs-dm-search-srv:8000"
+    target: "http://osc-dm-search-srv:8000"
 
   #####
   # PRODUCT INSTANCES (requests routed to local data products)
@@ -53,5 +53,5 @@ routes:
 
   # UX: Catch-all route for the React app
   - source: "/.*"
-    target: "http://bgs-dm-marketplace-ux:3000"
+    target: "http://osc-dm-marketplace-ux:3000"
 
