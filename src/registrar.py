@@ -14,7 +14,6 @@ LOGGING_FORMAT = "%(asctime)s - %(module)s:%(funcName)s %(levelname)s - %(messag
 logging.basicConfig(level=logging.INFO, format=LOGGING_FORMAT)
 logger = logging.getLogger(__name__)
 
-import models
 from etcd import Etcd
 from bgsexception import BgsException, BgsNotFoundException
 
@@ -22,7 +21,6 @@ STATUS_AUTHORIZED = "authorized"
 STATUS_UNAUTHORIZED = "unauthorized"
 
 import utilities
-import models
 
 class Registrar():
 
