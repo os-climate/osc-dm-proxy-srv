@@ -5,6 +5,7 @@
 # https://opensource.org/licenses/MIT.
 #
 # Created:  2024-04-15 by eric.broda@brodagroupsoftware.com
+
 import logging
 from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,18 +13,18 @@ import uvicorn
 import re
 import os
 import yaml
-from typing import Callable
 from functools import wraps
 import httpx
-import base64
 
 import state
+import tracer
 from registrar import Registrar
 from stats import Stats
 from bgsexception import BgsException, BgsNotFoundException
 
 REQUEST_TIMEOUT = 5
 
+from tracer import tracer
 
 app = FastAPI()
 
@@ -64,90 +65,16 @@ STATE_STATS="stats"
 
 ENDPOINT_PREFIX = "/api"
 
-def safe_decode(data):
-    try:
-        return data.decode('utf-8')
-    except UnicodeDecodeError:
-        # Return a base64 encoded string if UTF-8 decoding fails
-        return base64.b64encode(data).decode('utf-8')
-
-def tracer(func: Callable):
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        logger = logging.getLogger(__name__)
-        # Find the request object in args or kwargs
-        request = kwargs.get('request') if 'request' in kwargs else None
-        if request is None:
-            for arg in args:
-                if isinstance(arg, Request):
-                    request = arg
-                    break
-
-        # Extract body if the request is found
-        if request:
-            body = {}
-            # Check if the request is likely to have a body
-            if request.method not in ["GET", "HEAD", "OPTIONS"]:
-                try:
-                    body = await request.json()
-                except Exception:
-                    # Handle other content types like form-data or raw bodies
-                    try:
-                        body = await request.body()
-                        body = safe_decode(body)  # Decode safely
-                    except Exception as e:
-                        body = f"Failed to read body: {str(e)}"
-
-            # Call the actual endpoint
-            try:
-                response = await func(*args, **kwargs)
-
-                # Log request and response details
-                request_info = {
-                    "url": str(request.url),
-                    "method": request.method,
-                    "headers": dict(request.headers),
-                    "parameters": dict(request.query_params),
-                    "body": body
-                }
-                response_info = {
-                    "status_code": response.status_code,
-                    "body": safe_decode(response.body) if response.body else "No Body"
-                }
-
-                logger.info(f"TRACE REQ: {request_info}")
-                logger.info(f"TRACE RSP: {response_info}")
-
-            except Exception as e:
-                logger.error(f"Exception: {str(e)}")
-                raise e
-
-            return response
-        else:
-            return await func(*args, **kwargs)
-
-    return wrapper
-
-
-@app.get(ENDPOINT_PREFIX + "/statistics")
-@tracer
-async def statistics_get():
-    logger.info("Getting statistics")
-    stats = state.gstate(STATE_STATS)
-    response = {
-        "statistics":stats.info(),
-        "details":stats.details(),
-        "errors":stats.errors()
-    }
-    logger.info(f"Statistics response:{response}")
-    return response
-
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 @tracer
 async def route_path(request: Request, path: str):
     logger.info(f"Routing path:{path} request:{request}")
 
     response = None
+    response = await handle_local_request(request, path)
+    if response:
+        return response
+
     try:
         response = await handle_request(request, path)
     except BgsNotFoundException as e:
@@ -164,6 +91,25 @@ async def route_path(request: Request, path: str):
         raise HTTPException(status_code=500, detail=msg)
 
     return response
+
+
+async def handle_local_request(request: Request, path: str):
+    logger.info(f"Handling local request path:{path} request:{request}")
+
+    # If not a proxy request, then return None signifying
+    # that this is a regular request (not intended specifically
+    # for the proxy). Currently only proxy specific requests
+    # are for health and metrics.
+    if not path.startswith("api/proxy"):
+        return None
+
+    if path.startswith("api/proxy/health"):
+        response = { "health": "OK" }
+        return response
+
+    if path.startswith("api/proxy/metrics"):
+        response = { "metrics": "some-metrics"}
+        return response
 
 
 async def handle_request(request: Request, path: str):
@@ -365,3 +311,4 @@ if __name__ == "__main__":
     uvicorn.run(app, host=args.host, port=args.port)
 
     logger.info(f"DONE: Starting service on host:{args.host} port:{args.port}")
+
