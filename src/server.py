@@ -21,38 +21,9 @@ import tracer
 from registrar import Registrar
 from stats import Stats
 from bgsexception import BgsException, BgsNotFoundException
+from middleware import LoggingMiddleware
 
 REQUEST_TIMEOUT = 5
-
-from tracer import tracer
-
-app = FastAPI()
-
-#####
-#
-# ATTENTION: as an interm step to get code working,
-# I have setup the service to bypass CORS (cross
-# checks (request from host other than
-# originating host).
-#
-# This should be fixed properly with a PROXY
-#
-#####
-
-# Set up CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Specify the allowed origin
-    allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
-)
-
-# Set up logging
-LOGGING_FORMAT = "%(asctime)s - %(module)s:%(funcName)s %(levelname)s - %(message)s"
-logging.basicConfig(level=logging.INFO, format=LOGGING_FORMAT)
-logger = logging.getLogger(__name__)
-
 DEFAULT_HOST="0.0.0.0"
 DEFAULT_PORT=8000
 DEFAULT_CONFIG="./config/config.yaml"
@@ -65,8 +36,36 @@ STATE_STATS="stats"
 
 ENDPOINT_PREFIX = "/api"
 
+# Set up logging
+LOGGING_FORMAT = "%(asctime)s - %(module)s:%(funcName)s %(levelname)s - %(message)s"
+logging.basicConfig(level=logging.INFO, format=LOGGING_FORMAT)
+logger = logging.getLogger(__name__)
+
+app = FastAPI()
+app.add_middleware(LoggingMiddleware)
+
+#####
+#
+# ATTENTION: as an interm step to get code working,
+# I have setup the service to bypass CORS (cross
+# checks (request from host other than
+# originating host).
+#
+# This should be fixed in the future.
+#
+#####
+
+# Set up CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Specify the allowed origin
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
+)
+
+
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-@tracer
 async def route_path(request: Request, path: str):
     logger.info(f"Routing path:{path} request:{request}")
 
