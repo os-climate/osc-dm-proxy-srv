@@ -17,7 +17,6 @@ from functools import wraps
 import httpx
 
 import state
-import tracer
 from registrar import Registrar
 from stats import Stats
 from bgsexception import BgsException, BgsNotFoundException
@@ -107,7 +106,8 @@ async def handle_local_request(request: Request, path: str):
         return response
 
     if path.startswith("api/proxy/metrics"):
-        response = { "metrics": "some-metrics"}
+        metrics = LoggingMiddleware.get_metrics()
+        response = metrics
         return response
 
 
@@ -151,7 +151,7 @@ async def handle_request(request: Request, path: str):
             logger.info(f"Using resolver:{resolver}")
             resolved_target = None
             try:
-                resolved_target = await dynamic_resolver(path)
+                resolved_target = await dynamic_resolver(request, path)
             except BgsNotFoundException as e:
                 msg = f"Could not find dynamic path:{path}, exception:{str(e)}"
                 logger.error(msg)
@@ -193,15 +193,15 @@ async def handle_request(request: Request, path: str):
         raise BgsException(msg)
 
 
-async def dynamic_resolver(path: str) -> str:
+async def dynamic_resolver(request: Request, path: str) -> str:
     # Logic to resolve the path to an IP address
     logger.info(f"Resolving path:{path}")
-    resolved_path = await _service_discovery(path)
+    resolved_path = await _service_discovery(request, path)
     logger.info(f"Resolved path:{path} to:{resolved_path}")
     return resolved_path
 
 
-async def _service_discovery(path: str):
+async def _service_discovery(request: Request, path: str):
     logger.info(f"Discovering service from path:{path}")
 
     # Note that the path may have multiple UUIDs, but only the
@@ -219,7 +219,7 @@ async def _service_discovery(path: str):
         raise BgsNotFoundException(msg)
 
     registrar: Registrar = state.gstate(STATE_REGISTRAR)
-    address = await registrar.retrieve_product_address(uuid)
+    address = await registrar.retrieve_product_address(request, uuid)
     logger.info(f"Discovered uuid:{uuid} address:{address} from path:{path}")
 
     return address
@@ -306,8 +306,8 @@ if __name__ == "__main__":
     state.gstate(STATE_STATS, stats)
 
     logger.info(f"Using current working directory:{os.getcwd()}")
-    logger.info(f"START: Starting service on host:{args.host} port:{args.port}")
+    logger.info(f"Starting service on host:{args.host} port:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port)
 
-    logger.info(f"DONE: Starting service on host:{args.host} port:{args.port}")
+    logger.info(f"Terminating service")
 
