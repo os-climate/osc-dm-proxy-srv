@@ -8,14 +8,14 @@
 import logging
 import uuid
 from datetime import datetime
+from fastapi import Request
 
 # Set up logging
 LOGGING_FORMAT = "%(asctime)s - %(module)s:%(funcName)s %(levelname)s - %(message)s"
 logging.basicConfig(level=logging.INFO, format=LOGGING_FORMAT)
 logger = logging.getLogger(__name__)
 
-from etcd import Etcd
-from bgsexception import BgsException, BgsNotFoundException
+import constants
 
 STATUS_AUTHORIZED = "authorized"
 STATUS_UNAUTHORIZED = "unauthorized"
@@ -32,11 +32,17 @@ class Registrar():
         self.registrar_host = config["host"]
         self.registrar_port = config["port"]
 
-    async def retrieve_product_address(self, uuid: str):
+    async def retrieve_product_address(self, request: Request, uuid: str):
         logger.info(f"Retrieving product address uuid:{uuid}")
         service = f"/api/registrar/products/uuid/{uuid}"
         method = "GET"
-        response = await utilities.httprequest(self.registrar_host, self.registrar_port, service, method)
+        headers = {
+            constants.HEADER_USERNAME: request.headers.get(constants.HEADER_USERNAME),
+            constants.HEADER_CORRELATION_ID: request.headers.get(constants.HEADER_CORRELATION_ID),
+        }
+        response = await utilities.httprequest(
+            self.registrar_host, self.registrar_port,
+            service, method, headers=headers)
 
         product_json = response
         logger.info(f"Using product_json:{product_json}")
