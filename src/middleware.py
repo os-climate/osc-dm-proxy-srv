@@ -113,7 +113,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             logging_response = _LoggingStreamingResponse(original_body_iterator, status_code=response.status_code, headers=dict(response.headers))
             response_body = logging_response.body
         else:
-            response_body = response.body.decode("utf-8") if hasattr(response, 'body') else str(response)
+            response_body = _safe_decode(response.body) if hasattr(response, 'body') else str(response)
 
         response_info = {
             "status_code": response.status_code,

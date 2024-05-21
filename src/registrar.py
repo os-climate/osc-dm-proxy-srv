@@ -36,10 +36,16 @@ class Registrar():
         logger.info(f"Retrieving product address uuid:{uuid}")
         service = f"/api/registrar/products/uuid/{uuid}"
         method = "GET"
-        headers = {
-            constants.HEADER_USERNAME: request.headers.get(constants.HEADER_USERNAME),
-            constants.HEADER_CORRELATION_ID: request.headers.get(constants.HEADER_CORRELATION_ID),
-        }
+
+        headers = None
+        if request.headers.get(constants.HEADER_USERNAME) and request.headers.get(constants.HEADER_CORRELATION_ID):
+            headers = {
+                constants.HEADER_USERNAME: request.headers.get(constants.HEADER_USERNAME),
+                constants.HEADER_CORRELATION_ID: request.headers.get(constants.HEADER_CORRELATION_ID),
+            }
+        else:
+            logger.warning(f"Missing HEADER_USERNAME or HEADER_CORRELATION_ID headers:{request.headers}")
+
         response = await utilities.httprequest(
             self.registrar_host, self.registrar_port,
             service, method, headers=headers)
